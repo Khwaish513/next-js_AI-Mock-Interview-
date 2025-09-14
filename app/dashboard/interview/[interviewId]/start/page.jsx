@@ -27,7 +27,7 @@ const StartInterview = ({ params }) => {
         .from(MockInterview)
         .where(eq(MockInterview.mockId, params.interviewId));
       
-      const jsonMockResp = JSON.parse(result[0].jsonMockResp);
+      const jsonMockResp = (result[0].jsonMockResp);
       setMockInterviewQuestion(jsonMockResp);
       setInterviewData(result[0]);
     } catch (error) {

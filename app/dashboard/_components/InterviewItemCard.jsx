@@ -1,3 +1,5 @@
+"use client";
+
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import React, { useState } from "react";
@@ -6,6 +8,7 @@ import { eq } from "drizzle-orm";
 import { MockInterview } from "@/utils/schema";
 import { Trash } from "lucide-react";
 import { toast } from "sonner";
+import { format } from "date-fns";
 
 const InterviewItemCard = ({ interview }) => {
   const router = useRouter();
@@ -22,18 +25,32 @@ const InterviewItemCard = ({ interview }) => {
   const onDelete = async () => {
     try {
       await db.delete(MockInterview).where(eq(MockInterview.mockId, interview?.mockId));
-      
-      // Close dialog and show success toast
+
       setIsDialogOpen(false);
       toast.success("Interview deleted successfully");
-      
-      // Use router to refresh instead of full page reload
+
+      // Refresh page content
       router.refresh();
     } catch (error) {
       console.error("Error deleting interview:", error);
       toast.error("Failed to delete interview");
     }
   };
+
+  // ✅ Format createdAt safely
+  let formattedDate = "";
+  if (interview?.createdAt) {
+    try {
+      const dateObj =
+        typeof interview.createdAt === "string"
+          ? new Date(interview.createdAt)
+          : interview.createdAt;
+
+      formattedDate = format(dateObj, "dd MMM yyyy, HH:mm");
+    } catch {
+      formattedDate = String(interview.createdAt);
+    }
+  }
 
   return (
     <div className="relative border shadow-sm rounded-sm p-3">
@@ -50,8 +67,10 @@ const InterviewItemCard = ({ interview }) => {
       {/* Card Content */}
       <div>
         <h2 className="font-bold text-primary">{interview?.jobPosition}</h2>
-        <h2 className="text-sm text-gray-500">Experience: {interview?.jobExperience} Year(s)</h2>
-        <h2 className="text-sm text-gray-500">Created At: {interview?.createdAt}</h2>
+        <h2 className="text-sm text-gray-500">
+          Experience: {interview?.jobExperience} Year(s)
+        </h2>
+        <h2 className="text-sm text-gray-500">Created At: {formattedDate}</h2>
       </div>
 
       <div className="flex justify-between gap-5 mt-2">
@@ -73,10 +92,7 @@ const InterviewItemCard = ({ interview }) => {
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button 
-                variant="destructive" 
-                onClick={onDelete}
-              >
+              <Button variant="destructive" onClick={onDelete}>
                 Confirm Delete
               </Button>
             </div>

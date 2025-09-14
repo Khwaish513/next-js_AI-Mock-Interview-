@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useMemo } from "react";
+import React, { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -13,40 +13,52 @@ import { Textarea } from "@/components/ui/textarea";
 import { chatSession } from "@/utils/GeminiAIModal";
 import { LoaderCircle, Sparkles } from "lucide-react";
 import { MockInterview } from "@/utils/schema";
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from "uuid";
 import { db } from "@/utils/db";
 import { useUser } from "@clerk/nextjs";
-import moment from "moment";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 // Job Role Suggestions
 const JOB_ROLE_SUGGESTIONS = [
-  'Full Stack Developer',
-  'Frontend Developer',
-  'Backend Developer',
-  'Software Engineer',
-  'DevOps Engineer',
-  'Data Scientist',
-  'Machine Learning Engineer',
-  'Cloud Engineer',
-  'Mobile App Developer',
-  'UI/UX Designer'
+  "Full Stack Developer",
+  "Frontend Developer",
+  "Backend Developer",
+  "Software Engineer",
+  "DevOps Engineer",
+  "Data Scientist",
+  "Machine Learning Engineer",
+  "Cloud Engineer",
+  "Mobile App Developer",
+  "UI/UX Designer",
 ];
 
 // Tech Stack Suggestions
 const TECH_STACK_SUGGESTIONS = {
-  'Full Stack Developer': 'React, Node.js, Express, MongoDB, TypeScript',
-  'Frontend Developer': 'React, Vue.js, Angular, TypeScript, Tailwind CSS',
-  'Backend Developer': 'Python, Django, Flask, Java Spring, PostgreSQL',
-  'Software Engineer': 'Java, C++, Python, AWS, Microservices',
-  'DevOps Engineer': 'Docker, Kubernetes, Jenkins, AWS, Azure',
-  'Data Scientist': 'Python, TensorFlow, PyTorch, Pandas, NumPy',
-  'Machine Learning Engineer': 'Python, scikit-learn, Keras, TensorFlow',
-  'Cloud Engineer': 'AWS, Azure, GCP, Terraform, Kubernetes',
-  'Mobile App Developer': 'React Native, Flutter, Swift, Kotlin',
-  'UI/UX Designer': 'Figma, Sketch, Adobe XD, InVision'
+  "Full Stack Developer": "React, Node.js, Express, MongoDB, TypeScript",
+  "Frontend Developer": "React, Vue.js, Angular, TypeScript, Tailwind CSS",
+  "Backend Developer": "Python, Django, Flask, Java Spring, PostgreSQL",
+  "Software Engineer": "Java, C++, Python, AWS, Microservices",
+  "DevOps Engineer": "Docker, Kubernetes, Jenkins, AWS, Azure",
+  "Data Scientist": "Python, TensorFlow, PyTorch, Pandas, NumPy",
+  "Machine Learning Engineer": "Python, scikit-learn, Keras, TensorFlow",
+  "Cloud Engineer": "AWS, Azure, GCP, Terraform, Kubernetes",
+  "Mobile App Developer": "React Native, Flutter, Swift, Kotlin",
+  "UI/UX Designer": "Figma, Sketch, Adobe XD, InVision",
 };
+
+// Helper to clean Gemini output into valid JSON
+function forceValidJSON(str) {
+  // Remove code fences
+  str = str.replace(/```json\n?|```/g, "").trim();
+  // Quote keys
+  str = str.replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/g, '$1"$2":');
+  // Remove trailing commas
+  str = str.replace(/,\s*}/g, "}").replace(/,\s*]/g, "]");
+  // Fix broken quotes inside strings: Jest"s → Jest's
+  str = str.replace(/(\w)"s/g, "$1's");
+  return str;
+}
 
 function AddNewInterview() {
   const [openDialog, setOpenDialog] = useState(false);
@@ -69,34 +81,53 @@ function AddNewInterview() {
   const onSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-  
+
     const inputPrompt = `Job position: ${jobPosition}, Job Description: ${jobDescription}, Years of Experience: ${jobExperience}.
-    Generate 5 interview questions and answers in JSON format.`;
-  
+    Generate 5 interview questions and answers.
+    Return ONLY valid JSON in this format:
+    [
+      { "question": "string", "answer": "string" },
+      ...
+    ]
+    No markdown, no comments, no text outside JSON.`;
+
     try {
       const result = await chatSession.sendMessage(inputPrompt);
       const responseText = await result.response.text();
-      
-      const cleanedResponse = responseText.replace(/```json\n?|```/g, '').trim();
-      
-      const mockResponse = JSON.parse(cleanedResponse);
-      
-      const res = await db.insert(MockInterview)
+
+      console.log("RAW GEMINI OUTPUT:", responseText);
+
+      let cleanedResponse = forceValidJSON(responseText);
+      console.log("CLEANED RESPONSE:", cleanedResponse);
+
+      let mockResponse;
+      try {
+        mockResponse = JSON.parse(cleanedResponse);
+      } catch (err) {
+        console.error("Invalid JSON after cleaning:", cleanedResponse);
+        toast.error("Model did not return valid JSON. Please try again.");
+        setLoading(false);
+        return;
+      }
+
+      const res = await db
+        .insert(MockInterview)
         .values({
           mockId: uuidv4(),
-          jsonMockResp: JSON.stringify(mockResponse),
-          jobPosition: jobPosition,
+          jsonMockResp: JSON.stringify(mockResponse), // if column is jsonb: use mockResponse directly
+          jobPosition,
           jobDesc: jobDescription,
-          jobExperience: jobExperience,
+          jobExperience,
           createdBy: user?.primaryEmailAddress?.emailAddress,
-          createdAt: moment().format('DD-MM-YYYY'),
-        }).returning({ mockId: MockInterview.mockId });
-      
-      toast.success('Interview questions generated successfully!');
+          createdAt: new Date(), // let DB timestamp handle it if schema has defaultNow()
+        })
+        .returning({ mockId: MockInterview.mockId });
+
+      toast.success("Interview questions generated successfully!");
       router.push(`dashboard/interview/${res[0]?.mockId}`);
     } catch (error) {
       console.error("Error generating interview:", error);
-      toast.error('Failed to generate interview questions.');
+      toast.error("Failed to generate interview questions.");
     } finally {
       setLoading(false);
     }
@@ -131,14 +162,14 @@ function AddNewInterview() {
                       list="jobRoles"
                     />
                     <datalist id="jobRoles">
-                      {JOB_ROLE_SUGGESTIONS.map(role => (
+                      {JOB_ROLE_SUGGESTIONS.map((role) => (
                         <option key={role} value={role} />
                       ))}
                     </datalist>
-                    <Button 
-                      type="button" 
-                      variant="ghost" 
-                      size="icon" 
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
                       onClick={() => autoSuggestTechStack(jobPosition)}
                       disabled={!jobPosition}
                     >
@@ -169,7 +200,11 @@ function AddNewInterview() {
                 </div>
               </div>
               <div className="flex gap-5 justify-end">
-                <Button type="button" variant="ghost" onClick={() => setOpenDialog(false)}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setOpenDialog(false)}
+                >
                   Cancel
                 </Button>
                 <Button type="submit" disabled={loading}>
@@ -178,7 +213,7 @@ function AddNewInterview() {
                       <LoaderCircle className="animate-spin mr-2" /> Generating
                     </>
                   ) : (
-                    'Start Interview'
+                    "Start Interview"
                   )}
                 </Button>
               </div>

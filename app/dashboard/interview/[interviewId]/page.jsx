@@ -87,29 +87,34 @@ function Interview({ params }) {
           </div>
         </div>
         <div>
-          {webCamEnabled ? (
-            <Webcam
-              mirrored={true}
-              style={{ height: 300, width: "auto" }}
-              onUserMedia={() => setWebCamEnabled(true)}
-              onUserMediaError={() => {
-                toast.error("Webcam access error");
-                setWebCamEnabled(false);
-              }}
-            />
-          ) : (
-            <>
-              <WebcamIcon className="h-72 my-7 border rounded-lg w-full p-20 bg-secondary" />
-              <Button
-                className="w-full"
-                variant="ghost"
-                onClick={handleWebcamToggle}
-              >
-                Enable Web Cam and Microphone
-              </Button>
-            </>
-          )}
-        </div>
+  {webCamEnabled ? (
+    <Webcam
+      audio={true}                 // enable mic too
+      mirrored={true}
+      style={{ height: 300, width: "100%" }}
+      onUserMedia={() => {
+        toast.success("Webcam enabled");
+      }}
+      onUserMediaError={(err) => {
+        console.error("Webcam error:", err);
+        toast.error("Failed to access webcam");
+        setWebCamEnabled(false);
+      }}
+    />
+  ) : (
+    <>
+      <WebcamIcon className="h-72 my-7 border rounded-lg w-full p-20 bg-secondary" />
+      <Button
+        className="w-full"
+        variant="ghost"
+        onClick={() => setWebCamEnabled(true)} // just flip state, no manual getUserMedia
+      >
+        Enable Web Cam and Microphone
+      </Button>
+    </>
+  )}
+</div>
+
       </div>
       <div className="flex justify-end items-end">
         <Link href={`/dashboard/interview/${params.interviewId}/start`}>

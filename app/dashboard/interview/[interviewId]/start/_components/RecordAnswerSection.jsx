@@ -58,20 +58,22 @@ const RecordAnswerSection = ({
   }, []);
 
   const EnableWebcam = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      if (webcamRef.current) {
-        webcamRef.current.srcObject = stream;
-      }
-      setWebcamEnabled(true);
-      toast.success("Webcam enabled successfully");
-    } catch (error) {
-      toast.error("Failed to enable webcam", {
-        description: "Please check your camera permissions"
-      });
-      console.error("Webcam error:", error);
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    if (webcamRef.current) {
+      webcamRef.current.srcObject = stream;
+      await webcamRef.current.play(); // 👈 important
     }
-  };
+    setWebcamEnabled(true);
+    toast.success("Webcam enabled successfully");
+  } catch (error) {
+    toast.error("Failed to enable webcam", {
+      description: "Please check your camera permissions"
+    });
+    console.error("Webcam error:", error);
+  }
+};
+
 
   const DisableWebcam = () => {
     const tracks = webcamRef.current?.srcObject?.getTracks();
@@ -120,7 +122,7 @@ const RecordAnswerSection = ({
         feedback: JsonfeedbackResp?.feedback,
         rating: JsonfeedbackResp?.rating,
         userEmail: user?.primaryEmailAddress?.emailAddress,
-        createdAt: moment().format("DD-MM-YYYY"),
+        createdAt:new Date(),
       };
 
       await db.insert(UserAnswer).values(answerRecord);
